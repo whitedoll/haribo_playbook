@@ -7,7 +7,7 @@ test("홈 화면은 만화책 리더 업로드 안내를 보여준다", () => {
   render(<Home />);
 
   expect(
-    screen.getByRole("heading", { level: 1, name: "만화책 zip 리더" })
+    screen.getByRole("heading", { level: 1, name: "Comic Zip Viewer" })
   ).toBeInTheDocument();
   expect(screen.getByLabelText("zip 파일 선택")).toBeInTheDocument();
 });

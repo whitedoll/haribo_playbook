@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-fraunces);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -173,4 +173,257 @@
   animation: page-turn-shade 450ms ease-in forwards;
   animation-fill-mode: both;
   backface-visibility: hidden;
+}
+
+/* 시작 화면의 아늑한 원목 책장. public/cozy-bookshelf.html 무드보드를 그대로
+   가져와 다듬었다. 색상 변수(--cbs-*)는 .cozy-bookshelf 아래로 범위를 좁혀
+   앱 전역 테마 변수와 섞이지 않게 한다. */
+.cozy-bookshelf {
+  --cbs-wood-dark: #3c2a21;
+  --cbs-wood-mid: #5c4033;
+  --cbs-wood-light: #86603f;
+  --cbs-ink: #2e2620;
+  --cbs-ink-soft: #6b5d50;
+}
+
+.cozy-bookshelf-backdrop {
+  background: radial-gradient(ellipse at 50% 0%, #fffcf6 0%, #f1ebe0 60%);
+}
+
+.cozy-bookshelf .eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cbs-ink-soft);
+  margin: 0 0 6px 4px;
+}
+
+.cozy-bookshelf .title {
+  font-family: var(--font-heading), serif;
+  font-weight: 600;
+  color: var(--cbs-ink);
+  margin: 0 0 8px 4px;
+}
+
+.cozy-bookshelf .subtitle {
+  color: var(--cbs-ink-soft);
+  margin: 0 0 26px 4px;
+}
+
+/* 나무 케이스. 위쪽에 은은한 빛(.glow)을 얹어, 책장이 조명 아래 놓인 듯한
+   따뜻한 분위기를 낸다. */
+.cozy-bookshelf .case {
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    #4a342a,
+    var(--cbs-wood-mid) 8%,
+    var(--cbs-wood-mid) 92%,
+    #3a281f
+  );
+  border-radius: 14px;
+  padding: 22px 20px 16px;
+  box-shadow:
+    0 30px 50px -20px rgba(38, 24, 14, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.cozy-bookshelf .glow {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  width: 420px;
+  max-width: 90%;
+  height: 180px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse, rgba(255, 224, 168, 0.35), rgba(255, 224, 168, 0) 70%);
+  pointer-events: none;
+  filter: blur(2px);
+}
+
+.cozy-bookshelf .shelf {
+  position: relative;
+  margin-bottom: 22px;
+}
+
+.cozy-bookshelf .shelf:last-of-type {
+  margin-bottom: 0;
+}
+
+.cozy-bookshelf .row {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 14px 10px 0;
+  min-height: 150px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 85%, rgba(0, 0, 0, 0.18) 100%);
+}
+
+.cozy-bookshelf .plank {
+  height: 16px;
+  border-radius: 2px;
+  background: linear-gradient(
+    180deg,
+    var(--cbs-wood-light) 0%,
+    var(--cbs-wood-mid) 55%,
+    var(--cbs-wood-dark) 100%
+  );
+  box-shadow:
+    0 10px 14px -6px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* 실제로 클릭 가능한 책(zip 선택 / 보관 zip)만 이 클래스를 쓴다. 마우스를
+   올리거나 포커스하면 살짝 들리고 그림자가 짙어져, 순수 장식용 책과 다른
+   손맛을 준다. */
+.cozy-bookshelf .book,
+.cozy-bookshelf .filler-book {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: 3px 3px 1px 1px;
+  padding-bottom: 8px;
+  box-shadow:
+    1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    -2px 0 6px rgba(0, 0, 0, 0.25) inset,
+    2px 6px 10px -4px rgba(0, 0, 0, 0.5);
+}
+
+.cozy-bookshelf .book {
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.cozy-bookshelf .book:hover,
+.cozy-bookshelf .book:focus-visible {
+  transform: translateY(-6px);
+  box-shadow:
+    1px 0 0 rgba(255, 255, 255, 0.1) inset,
+    -2px 0 6px rgba(0, 0, 0, 0.25) inset,
+    4px 14px 18px -6px rgba(0, 0, 0, 0.5);
+}
+
+.cozy-bookshelf .book-spine {
+  font-family: var(--font-heading), serif;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+  color: rgba(255, 250, 240, 0.92);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+}
+
+.cozy-bookshelf .lean {
+  transform: rotate(-7deg);
+  transform-origin: bottom center;
+}
+
+.cozy-bookshelf .lean2 {
+  transform: rotate(5deg);
+  transform-origin: bottom center;
+}
+
+.cozy-bookshelf .stack {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 3px;
+  margin-right: 2px;
+}
+
+.cozy-bookshelf .flat {
+  height: 16px;
+  border-radius: 2px;
+  box-shadow:
+    0 2px 3px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.cozy-bookshelf .flat-lean {
+  width: 16px;
+  height: 56px;
+  border-radius: 2px 2px 1px 1px;
+  transform: rotate(-14deg);
+  transform-origin: bottom left;
+  box-shadow: 2px 4px 8px -2px rgba(0, 0, 0, 0.45);
+  align-self: flex-end;
+  margin-left: -6px;
+}
+
+.cozy-bookshelf .plant {
+  width: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-left: auto;
+}
+
+.cozy-bookshelf .leaves {
+  position: relative;
+  height: 36px;
+  width: 30px;
+}
+
+.cozy-bookshelf .leaf {
+  position: absolute;
+  width: 5px;
+  height: 34px;
+  background: linear-gradient(180deg, #7c9463, #56683f);
+  border-radius: 50% 50% 50% 50% / 70% 70% 30% 30%;
+  transform-origin: bottom center;
+}
+
+.cozy-bookshelf .leaf:nth-child(1) {
+  left: 8px;
+  transform: rotate(-18deg);
+}
+
+.cozy-bookshelf .leaf:nth-child(2) {
+  left: 14px;
+  height: 40px;
+  transform: rotate(2deg);
+}
+
+.cozy-bookshelf .leaf:nth-child(3) {
+  left: 19px;
+  transform: rotate(20deg);
+}
+
+.cozy-bookshelf .pot {
+  width: 32px;
+  height: 26px;
+  background: linear-gradient(180deg, #c97b4a, #a85c34);
+  border-radius: 2px 2px 8px 8px;
+  box-shadow:
+    2px 5px 8px -2px rgba(0, 0, 0, 0.5),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.25);
+}
+
+.cozy-bookshelf .caption {
+  text-align: center;
+  margin-top: 18px;
+  font-size: 12.5px;
+  color: var(--cbs-ink-soft);
+  letter-spacing: 0.02em;
+}
+
+.cozy-bookshelf .empty-hint {
+  padding-bottom: 24px;
+  font-size: 13px;
+  color: rgba(255, 250, 240, 0.7);
+}
+
+/* 좁은 화면에서는 장식용 책 한 권을 줄여 화분/책이 서로 밀리지 않게 한다.
+   Tailwind의 hidden/sm:block 유틸리티는 레이어 안에 있어 .filler-book의
+   display:flex(레이어 밖 커스텀 CSS)를 이기지 못하므로, 같은 방식(레이어
+   밖 + 미디어쿼리)으로 직접 정의한다. */
+@media (max-width: 639px) {
+  .cozy-bookshelf .hide-on-mobile {
+    display: none;
+  }
 }

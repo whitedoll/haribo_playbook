@@ -102,7 +102,7 @@ describe("ComicReader", () => {
     renderReader();
 
     expect(
-      screen.getByRole("heading", { name: "만화책 zip 리더" })
+      screen.getByRole("heading", { name: "Comic Zip Viewer" })
     ).toBeInTheDocument();
     expect(screen.getByLabelText("zip 파일 선택")).toBeInTheDocument();
     expect(screen.getAllByText("zip 파일 선택")).toHaveLength(1);
@@ -397,7 +397,7 @@ describe("ComicReader", () => {
     fireEvent.click(screen.getByRole("button", { name: "다른 zip 업로드" }));
     await waitFor(() =>
       expect(
-        screen.getByRole("heading", { name: "만화책 zip 리더" })
+        screen.getByRole("heading", { name: "Comic Zip Viewer" })
       ).toBeInTheDocument()
     );
 
@@ -416,7 +416,7 @@ describe("ComicReader", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole("heading", { name: "만화책 zip 리더" })
+        screen.getByRole("heading", { name: "Comic Zip Viewer" })
       ).toBeInTheDocument()
     );
   });

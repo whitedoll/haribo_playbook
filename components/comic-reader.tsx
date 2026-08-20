@@ -53,6 +53,56 @@ function isNextSide(side: "left" | "right", direction: ReadingDirection): boolea
   return direction === "rtl" ? side === "left" : side === "right";
 }
 
+/** 표지 이미지가 없는 최근 zip을 책장에서 서로 구별되는 색으로 보여주기 위한
+ * 팔레트. public/cozy-bookshelf.html 무드보드의 책 색상을 그대로 가져왔다. */
+const BOOK_PALETTES = [
+  { from: "#3F6C6B", to: "#2C4E4D" },
+  { from: "#9C4B33", to: "#7A3624" },
+  { from: "#2E3F56", to: "#1F2C3D" },
+  { from: "#6C7A54", to: "#515D3E" },
+  { from: "#B77768", to: "#8F5849" },
+];
+
+/** zip의 id로부터 팔레트를 정해, 같은 zip은 다시 보아도 항상 같은 색을 갖게 한다. */
+function paletteForId(id: string) {
+  let hash = 0;
+  for (let index = 0; index < id.length; index++) {
+    hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
+  }
+  return BOOK_PALETTES[hash % BOOK_PALETTES.length];
+}
+
+function spineGradient(from: string, to: string): string {
+  return `linear-gradient(180deg, ${from}, ${to})`;
+}
+
+/** 실제로 열 수 없는 장식용 책. 책장이 꽉 차 보이게 하는 배경 소품이라,
+ * 실제 항목(zip 선택/보관 zip)과 달리 글자도 없고 클릭·마우스오버에도
+ * 반응하지 않으며 스크린리더에도 노출하지 않는다. */
+function DecorBook({
+  width,
+  height,
+  from,
+  to,
+  lean,
+  className,
+}: {
+  width: number;
+  height: number;
+  from: string;
+  to: string;
+  lean?: "lean" | "lean2";
+  className?: string;
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`filler-book pointer-events-none${lean ? ` ${lean}` : ""}${className ? ` ${className}` : ""}`}
+      style={{ width, height, background: spineGradient(from, to) }}
+    />
+  );
+}
+
 export function ComicReader() {
   const [status, setStatus] = useState<ReaderStatus>({ kind: "idle" });
   const [pageIndex, setPageIndex] = useState(0);
@@ -412,50 +462,108 @@ export function ComicReader() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
-      <h1 className="text-2xl font-semibold">만화책 zip 리더</h1>
-      <p className="max-w-md text-sm text-muted-foreground">
-        만화책 이미지가 담긴 zip 파일을 올리면 압축을 풀지 않고 바로 읽을 수 있습니다.
-      </p>
-      <div className="flex flex-col items-center gap-2">
-        <Button type="button" onClick={() => fileInputRef.current?.click()}>
-          zip 파일 선택
-        </Button>
-        <input
-          ref={fileInputRef}
-          id={fileInputId}
-          type="file"
-          aria-label="zip 파일 선택"
-          accept=".zip,application/zip,application/x-zip-compressed"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-      </div>
-      {status.kind === "error" && (
-        <p role="alert" className="text-sm text-destructive">
-          {status.message}
+    <div className="cozy-bookshelf-backdrop flex flex-1 flex-col items-center justify-center p-6 sm:p-10">
+      <div className="cozy-bookshelf w-full max-w-xl">
+        <p className="eyebrow">Comic Library</p>
+        <h1 className="title text-2xl sm:text-3xl">Comic Zip Viewer</h1>
+        <p className="subtitle text-sm">
+          만화책 이미지가 담긴 zip 파일을 올리면 압축을 풀지 않고 바로 읽을 수 있습니다.
         </p>
-      )}
-      {library.length > 0 && (
-        <div className="w-full max-w-sm text-left">
-          <h2 className="mb-2 text-sm font-medium text-muted-foreground">
-            최근 zip
-          </h2>
-          <ul className="flex flex-col gap-1">
-            {library.map((entry) => (
-              <li key={entry.id}>
-                <button
-                  type="button"
-                  onClick={() => openLibraryEntry(entry)}
-                  className="w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-left text-sm hover:bg-muted"
-                >
-                  {entry.name}
-                </button>
-              </li>
-            ))}
-          </ul>
+
+        <div className="case">
+          <div className="glow" aria-hidden="true" />
+
+          {/* 1단: zip 파일 선택. 실제로 클릭 가능한 책 한 권과, 책장을 채우는
+              장식용 책들 + 화분을 함께 둔다. */}
+          <div className="shelf">
+            <div className="row">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="book cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                style={{ width: 36, height: 128, background: spineGradient("#C0932E", "#96701E") }}
+              >
+                <span className="book-spine">zip 파일 선택</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                id={fileInputId}
+                type="file"
+                aria-label="zip 파일 선택"
+                accept=".zip,application/zip,application/x-zip-compressed"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+
+              <DecorBook width={34} height={118} from="#3F6C6B" to="#2C4E4D" lean="lean" />
+              <DecorBook width={30} height={104} from="#9C4B33" to="#7A3624" />
+              <DecorBook width={26} height={96} from="#C0932E" to="#96701E" />
+              <DecorBook width={38} height={126} from="#2E3F56" to="#1F2C3D" lean="lean2" />
+              <DecorBook width={28} height={100} from="#6C7A54" to="#515D3E" />
+              {/* 모바일 폭에서는 화분이 밀려나 떨어져 보이므로 이 책은 숨긴다. */}
+              <DecorBook width={32} height={112} from="#B77768" to="#8F5849" className="hide-on-mobile" />
+
+              <div className="plant" aria-hidden="true">
+                <div className="leaves">
+                  <div className="leaf" />
+                  <div className="leaf" />
+                  <div className="leaf" />
+                </div>
+                <div className="pot" />
+              </div>
+            </div>
+            <div className="plank" />
+          </div>
+
+          {/* 2단: 최근 zip. 실제로 클릭 가능한 책(최대 2권)과, 그 옆을 채우는
+              장식용 책 더미/책들을 함께 둔다. */}
+          <div className="shelf">
+            <div className="row">
+              <div className="stack" aria-hidden="true">
+                <div className="flat" style={{ width: 74, background: spineGradient("#6C7A54", "#515D3E") }} />
+                <div className="flat" style={{ width: 64, background: spineGradient("#C0932E", "#96701E") }} />
+              </div>
+              <div
+                className="flat-lean"
+                aria-hidden="true"
+                style={{ background: spineGradient("#9C4B33", "#7A3624") }}
+              />
+
+              {library.length === 0 ? (
+                <p className="empty-hint">아직 열어본 zip이 없습니다.</p>
+              ) : (
+                library.map((entry) => {
+                  const palette = paletteForId(entry.id);
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => openLibraryEntry(entry)}
+                      className="book cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                      style={{ width: 34, height: 120, background: spineGradient(palette.from, palette.to) }}
+                    >
+                      <span className="book-spine line-clamp-1">{entry.name}</span>
+                    </button>
+                  );
+                })
+              )}
+
+              <DecorBook width={30} height={108} from="#3F6C6B" to="#2C4E4D" />
+              <DecorBook width={26} height={96} from="#C0932E" to="#96701E" lean="lean2" />
+              <DecorBook width={32} height={110} from="#B77768" to="#8F5849" />
+              {/* 모바일 폭에서는 옆 책들과 겹쳐 밀려나므로 이 책은 숨긴다. */}
+              <DecorBook width={28} height={102} from="#2E3F56" to="#1F2C3D" lean="lean" className="hide-on-mobile" />
+            </div>
+            <div className="plank" />
+          </div>
         </div>
-      )}
+
+        {status.kind === "error" && (
+          <p role="alert" className="mt-4 text-center text-sm text-destructive">
+            {status.message}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
