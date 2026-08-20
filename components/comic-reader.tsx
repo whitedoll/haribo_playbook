@@ -304,6 +304,12 @@ export function ComicReader() {
                 const lastToFinishIndex =
                   overlay.turnDirection === "left" ? PAGE_TURN_STRIP_COUNT - 1 : 0;
 
+                const delayMs = getStripDelay(
+                  index,
+                  PAGE_TURN_STRIP_COUNT,
+                  overlay.turnDirection
+                );
+
                 return (
                   <div
                     key={index}
@@ -315,7 +321,7 @@ export function ComicReader() {
                         transformOrigin:
                           overlay.turnDirection === "left" ? "right center" : "left center",
                         "--turn-sign": overlay.turnDirection === "left" ? -1 : 1,
-                        animationDelay: `${getStripDelay(index, PAGE_TURN_STRIP_COUNT, overlay.turnDirection)}ms`,
+                        animationDelay: `${delayMs}ms`,
                       } as CSSProperties
                     }
                     onAnimationEnd={
@@ -328,18 +334,22 @@ export function ComicReader() {
                       aria-hidden="true"
                       className="h-full w-full select-none object-contain"
                     />
+                    {/* 조각이 화면과 수직에 가까워질 때(가장 많이 굽었을 때) 그
+                        조각 위로 그림자/하이라이트가 지나가게 해, 평평한 판이
+                        아니라 종이가 접히는 것처럼 보이게 한다. */}
+                    <div
+                      className="page-turn-strip-shade absolute inset-0"
+                      style={{
+                        animationDelay: `${delayMs}ms`,
+                        background:
+                          overlay.turnDirection === "left"
+                            ? "linear-gradient(to left, rgba(0,0,0,0.15), rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.85))"
+                            : "linear-gradient(to right, rgba(0,0,0,0.15), rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.85))",
+                      }}
+                    />
                   </div>
                 );
               })}
-              <div
-                className="page-turn-shadow absolute inset-0"
-                style={{
-                  background:
-                    overlay.turnDirection === "left"
-                      ? "linear-gradient(to left, transparent, rgba(0,0,0,0.6))"
-                      : "linear-gradient(to right, transparent, rgba(0,0,0,0.6))",
-                }}
-              />
             </div>
           )}
           <button

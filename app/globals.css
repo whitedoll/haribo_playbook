@@ -148,12 +148,15 @@
   }
 }
 
-@keyframes page-turn-shadow {
+/* 각 조각이 굽어지는 동안 그 위를 지나가는 그림자/하이라이트 밴드.
+   조각이 화면과 수직에 가까워지는 순간(가장 많이 굽은 순간) 가장 진하게
+   보이도록 해서, 평평한 판이 아니라 종이가 접히는 것처럼 보이게 한다. */
+@keyframes page-turn-shade {
   0% {
     opacity: 0;
   }
-  45% {
-    opacity: 0.35;
+  55% {
+    opacity: 0.9;
   }
   100% {
     opacity: 0;
@@ -166,7 +169,8 @@
   backface-visibility: hidden;
 }
 
-.page-turn-shadow {
-  animation: page-turn-shadow 450ms ease-in forwards;
+.page-turn-strip-shade {
+  animation: page-turn-shade 450ms ease-in forwards;
+  animation-fill-mode: both;
   backface-visibility: hidden;
 }
