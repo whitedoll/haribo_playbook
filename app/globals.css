@@ -160,8 +160,9 @@
   }
 }
 
-.page-turn-overlay {
+.page-turn-strip {
   animation: page-turn 450ms ease-in forwards;
+  animation-fill-mode: both;
   backface-visibility: hidden;
 }
 

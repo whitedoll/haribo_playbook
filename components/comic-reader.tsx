@@ -21,7 +21,14 @@ import {
   type ReadingDirection,
 } from "@/lib/comic-spread";
 import { ComicZipError, parseComicZip, type ComicPage } from "@/lib/comic-zip";
-import { getTurnDirection, type TurnDirection } from "@/lib/page-turn-animation";
+import {
+  getStripClipPath,
+  getStripDelay,
+  getTurnDirection,
+  PAGE_TURN_STRIP_COUNT,
+  PAGE_TURN_TOTAL_MS,
+  type TurnDirection,
+} from "@/lib/page-turn-animation";
 
 type ViewMode = "single" | "double";
 
@@ -104,7 +111,7 @@ export function ComicReader() {
     const overlayId = overlay.id;
     const timeout = setTimeout(() => {
       setOverlay((current) => (current?.id === overlayId ? null : current));
-    }, 500);
+    }, PAGE_TURN_TOTAL_MS + 350);
     return () => clearTimeout(timeout);
   }, [overlay]);
 
@@ -289,22 +296,41 @@ export function ComicReader() {
               key={overlay.id}
               data-testid="page-turn-overlay"
               data-direction={overlay.turnDirection}
-              className="page-turn-overlay pointer-events-none absolute inset-0 z-20"
-              style={
-                {
-                  transformOrigin:
-                    overlay.turnDirection === "left" ? "right center" : "left center",
-                  "--turn-sign": overlay.turnDirection === "left" ? -1 : 1,
-                } as CSSProperties
-              }
-              onAnimationEnd={() => setOverlay(null)}
+              className="pointer-events-none absolute inset-0 z-20"
             >
-              <img
-                src={overlay.imageUrl}
-                alt=""
-                aria-hidden="true"
-                className="h-full w-full select-none object-contain"
-              />
+              {Array.from({ length: PAGE_TURN_STRIP_COUNT }, (_, index) => {
+                // 경첩에서 가장 먼 조각(자유단)이 먼저 움직이고 경첩 쪽 조각이
+                // 가장 늦게 끝나므로, 그 "마지막 조각"에서만 오버레이를 지운다.
+                const lastToFinishIndex =
+                  overlay.turnDirection === "left" ? PAGE_TURN_STRIP_COUNT - 1 : 0;
+
+                return (
+                  <div
+                    key={index}
+                    data-testid="page-turn-strip"
+                    className="page-turn-strip absolute inset-0"
+                    style={
+                      {
+                        clipPath: getStripClipPath(index, PAGE_TURN_STRIP_COUNT),
+                        transformOrigin:
+                          overlay.turnDirection === "left" ? "right center" : "left center",
+                        "--turn-sign": overlay.turnDirection === "left" ? -1 : 1,
+                        animationDelay: `${getStripDelay(index, PAGE_TURN_STRIP_COUNT, overlay.turnDirection)}ms`,
+                      } as CSSProperties
+                    }
+                    onAnimationEnd={
+                      index === lastToFinishIndex ? () => setOverlay(null) : undefined
+                    }
+                  >
+                    <img
+                      src={overlay.imageUrl}
+                      alt=""
+                      aria-hidden="true"
+                      className="h-full w-full select-none object-contain"
+                    />
+                  </div>
+                );
+              })}
               <div
                 className="page-turn-shadow absolute inset-0"
                 style={{

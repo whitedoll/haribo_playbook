@@ -146,10 +146,10 @@ describe("ComicReader", () => {
     expect(await screen.findByAltText("2쪽")).toBeInTheDocument();
   });
 
-  test("페이지를 넘기면 넘김 애니메이션 오버레이가 방향에 맞게 나타났다가 사라진다", async () => {
+  test("페이지를 넘기면 넘김 애니메이션 오버레이(여러 조각)가 방향에 맞게 나타났다가 사라진다", async () => {
     // jsdom은 AnimationEvent/실제 CSS 애니메이션을 지원하지 않으므로, 오버레이를
-    // 정리하는 타이머 폴백(500ms)을 가짜 타이머로 진행시켜 검증한다. 클릭보다
-    // 먼저 켜야 그 클릭이 만든 타이머 자체가 가짜 타이머로 등록된다.
+    // 정리하는 타이머 폴백을 가짜 타이머로 진행시켜 검증한다. 클릭보다 먼저 켜야
+    // 그 클릭이 만든 타이머 자체가 가짜 타이머로 등록된다.
     vi.useFakeTimers({ shouldAdvanceTime: true });
     renderReader();
     uploadFile(validComicZipFile());
@@ -159,10 +159,11 @@ describe("ComicReader", () => {
 
     const overlay = await screen.findByTestId("page-turn-overlay");
     expect(overlay).toHaveAttribute("data-direction", "left");
+    expect(screen.getAllByTestId("page-turn-strip")).toHaveLength(8);
     expect(await screen.findByAltText("2쪽")).toBeInTheDocument(); // 애니메이션과 무관하게 즉시 반영
 
     act(() => {
-      vi.advanceTimersByTime(500);
+      vi.advanceTimersByTime(1000);
     });
     expect(screen.queryByTestId("page-turn-overlay")).not.toBeInTheDocument();
   });
