@@ -11,10 +11,10 @@
 
 ## Acceptance criteria
 
-- [ ] zip 업로드 후 홈 화면 목록에 해당 zip이 나타난다.
-- [ ] 목록에서 zip을 클릭하면 해당 zip의 읽기 화면으로 진입한다.
-- [ ] 3번째 zip을 업로드하면 가장 오래된 zip이 즉시 삭제되고 목록에서 사라진다.
-- [ ] 삭제된 zip은 더 이상 열람할 수 없다.
+- [x] zip 업로드 후 홈 화면 목록에 해당 zip이 나타난다.
+- [x] 목록에서 zip을 클릭하면 해당 zip의 읽기 화면으로 진입한다.
+- [x] 3번째 zip을 업로드하면 가장 오래된 zip이 즉시 삭제되고 목록에서 사라진다.
+- [x] 삭제된 zip은 더 이상 열람할 수 없다.
 
 ## Constraints
 
@@ -32,10 +32,17 @@ One review pass after this task. 누적 범위: zip 영속 저장 및 자동 삭
 
 ## Status
 
-pending
+completed
 
 ## Execution
 
-- Verification: —
+- Verification: `bun run typecheck` 통과, `vitest run` 6개 파일 35개 테스트 통과
+  (lib/comic-library.test.ts 신규 5개 포함: 저장·조회, 2개 초과 시 가장 오래된 것
+  자동 삭제, 최신순 목록, 유효하지 않은 zip 거부, 존재하지 않는 id 처리). 실행 중인
+  dev 서버에서 실제로 zip 3개를 연속 업로드해 목록이 최신 2개(comic-c, comic-b)만
+  남고 가장 오래된 것(comic-a)이 404로 열람 불가함을 확인, 페이지를 새로고침해도
+  목록이 유지됨을 확인, 목록에서 zip을 클릭해 읽기 화면으로 정상 진입함을 확인.
+  콘솔에 남은 404 로그는 삭제된 zip을 의도적으로 다시 요청해본 진단성 호출로,
+  실제 앱 흐름에서 발생한 에러가 아님을 네트워크 로그로 확인.
 - Blocker: —
 - Revision: —

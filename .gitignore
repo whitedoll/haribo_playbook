@@ -40,6 +40,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# comic reader local storage
+/.data/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

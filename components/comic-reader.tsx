@@ -1,8 +1,9 @@
 "use client";
 
-import { useId, useState, type ChangeEvent } from "react";
+import { useEffect, useId, useState, type ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import type { LibraryEntry } from "@/lib/comic-library";
 import {
   getSpreadPageIndices,
   getSpreadStarts,
@@ -30,9 +31,37 @@ export function ComicReader() {
   const [pageIndex, setPageIndex] = useState(0);
   const [direction, setDirection] = useState<ReadingDirection>("rtl");
   const [viewMode, setViewMode] = useState<ViewMode>("single");
+  const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const fileInputId = useId();
   const directionSelectId = useId();
   const viewModeSelectId = useId();
+
+  async function fetchLibraryEntries(): Promise<LibraryEntry[] | null> {
+    try {
+      const response = await fetch("/api/comics");
+      if (!response.ok) return null;
+      const data = (await response.json()) as { entries: LibraryEntry[] };
+      return data.entries;
+    } catch {
+      return null;
+    }
+  }
+
+  function refreshLibrary() {
+    void fetchLibraryEntries().then((entries) => {
+      if (entries) setLibrary(entries);
+    });
+  }
+
+  useEffect(() => {
+    let ignore = false;
+    void fetchLibraryEntries().then((entries) => {
+      if (!ignore && entries) setLibrary(entries);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -41,15 +70,50 @@ export function ComicReader() {
 
     try {
       const buffer = await file.arrayBuffer();
-      const pages = parseComicZip(new Uint8Array(buffer));
+      const bytes = new Uint8Array(buffer);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/comics", {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setStatus({
+          kind: "error",
+          message: data.error ?? "zip 파일을 저장하는 중 문제가 발생했습니다.",
+        });
+        return;
+      }
+
+      const pages = parseComicZip(bytes);
       setPageIndex(0);
       setStatus({ kind: "reading", pages });
+      void refreshLibrary();
     } catch (error) {
       const message =
         error instanceof ComicZipError
           ? error.message
           : "zip 파일을 읽는 중 문제가 발생했습니다.";
       setStatus({ kind: "error", message });
+    }
+  }
+
+  async function openLibraryEntry(entry: LibraryEntry) {
+    try {
+      const response = await fetch(`/api/comics/${entry.id}`);
+      if (!response.ok) {
+        setStatus({ kind: "error", message: "선택한 zip을 열 수 없습니다." });
+        void refreshLibrary();
+        return;
+      }
+      const buffer = await response.arrayBuffer();
+      const pages = parseComicZip(new Uint8Array(buffer));
+      setPageIndex(0);
+      setStatus({ kind: "reading", pages });
+    } catch {
+      setStatus({ kind: "error", message: "선택한 zip을 열 수 없습니다." });
     }
   }
 
@@ -77,6 +141,7 @@ export function ComicReader() {
   function reset() {
     setStatus({ kind: "idle" });
     setPageIndex(0);
+    void refreshLibrary();
   }
 
   if (status.kind === "reading") {
@@ -155,7 +220,7 @@ export function ComicReader() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
       <h1 className="text-2xl font-semibold">만화책 zip 리더</h1>
       <p className="max-w-md text-sm text-muted-foreground">
         만화책 이미지가 담긴 zip 파일을 올리면 압축을 풀지 않고 바로 읽을 수 있습니다.
@@ -176,6 +241,26 @@ export function ComicReader() {
         <p role="alert" className="text-sm text-destructive">
           {status.message}
         </p>
+      )}
+      {library.length > 0 && (
+        <div className="w-full max-w-sm text-left">
+          <h2 className="mb-2 text-sm font-medium text-muted-foreground">
+            최근 zip
+          </h2>
+          <ul className="flex flex-col gap-1">
+            {library.map((entry) => (
+              <li key={entry.id}>
+                <button
+                  type="button"
+                  onClick={() => openLibraryEntry(entry)}
+                  className="w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-left text-sm hover:bg-muted"
+                >
+                  {entry.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
