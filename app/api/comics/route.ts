@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { addComic, listComics } from "@/lib/comic-library";
+import { addComic, EXAMPLE_ENTRIES, listComics } from "@/lib/comic-library";
 import { ComicZipError } from "@/lib/comic-zip";
 
 export async function GET() {
   const entries = await listComics();
-  return NextResponse.json({ entries });
+  // 업로드 기록이 없으면(배포 직후 등) 예제 zip을 대신 보여준다.
+  return NextResponse.json({ entries: entries.length > 0 ? entries : EXAMPLE_ENTRIES });
 }
 
 export async function POST(request: Request) {

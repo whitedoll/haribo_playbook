@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { getComicBytes, updateComicPosition } from "@/lib/comic-library";
+import { getComicBytes, getExampleBytes, updateComicPosition } from "@/lib/comic-library";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const bytes = await getComicBytes(id);
+  const bytes = (await getExampleBytes(id)) ?? (await getComicBytes(id));
 
   if (!bytes) {
     return NextResponse.json({ error: "찾을 수 없습니다." }, { status: 404 });

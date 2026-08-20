@@ -118,3 +118,33 @@ export async function getComicBytes(
     return null;
   }
 }
+
+/**
+ * 업로드 기록이 아직 없을 때(배포 직후 등) "최근 zip" 자리에 대신 보여줄 예제
+ * 항목. `.data/`의 실제 업로드 기록과 달리 `public/examples/`에 함께 배포되는
+ * 정적 파일이라, 서버리스처럼 파일시스템 쓰기가 유지되지 않는 환경에서도 항상
+ * 열어볼 수 있다.
+ */
+export const EXAMPLE_ENTRIES: LibraryEntry[] = [
+  { id: "example-war", name: "war.zip", createdAt: "2024-01-01T00:00:00.000Z" },
+  { id: "example-comic", name: "comic.zip", createdAt: "2024-01-01T00:00:00.000Z" },
+];
+
+const EXAMPLE_FILES: Record<string, string> = {
+  "example-war": "war.zip",
+  "example-comic": "comic.zip",
+};
+
+/** 예제 zip의 원본 바이트를 `public/examples/`에서 읽는다. 해당 id의 예제가
+ * 없거나 파일을 읽을 수 없으면 null. */
+export async function getExampleBytes(id: string): Promise<Uint8Array | null> {
+  const fileName = EXAMPLE_FILES[id];
+  if (!fileName) return null;
+
+  try {
+    const buffer = await readFile(path.join(process.cwd(), "public", "examples", fileName));
+    return new Uint8Array(buffer);
+  } catch {
+    return null;
+  }
+}

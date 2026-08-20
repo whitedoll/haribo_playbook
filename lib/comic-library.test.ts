@@ -8,10 +8,13 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { ComicZipError } from "@/lib/comic-zip";
 import {
   addComic,
+  EXAMPLE_ENTRIES,
   getComicBytes,
+  getExampleBytes,
   listComics,
   updateComicPosition,
 } from "@/lib/comic-library";
+import { parseComicZip } from "@/lib/comic-zip";
 
 function bytesOf(value: string): Uint8Array {
   return new TextEncoder().encode(value);
@@ -117,5 +120,18 @@ describe("comic-library", () => {
       baseDir
     );
     expect(updatedAfterEviction).toBe(false);
+  });
+
+  test.each(EXAMPLE_ENTRIES)(
+    "예제 zip($name)은 업로드 기록 없이도 public/examples/에서 읽을 수 있는 유효한 zip이다",
+    async ({ id }) => {
+      const bytes = await getExampleBytes(id);
+      expect(bytes).not.toBeNull();
+      expect(() => parseComicZip(bytes as Uint8Array)).not.toThrow();
+    }
+  );
+
+  test("존재하지 않는 예제 id는 null을 반환한다", async () => {
+    expect(await getExampleBytes("no-such-example")).toBeNull();
   });
 });
