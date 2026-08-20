@@ -4,10 +4,16 @@ import path from "node:path";
 
 import { parseComicZip } from "@/lib/comic-zip";
 
+export type ReadingPosition = {
+  pageIndex: number;
+  viewMode: "single" | "double";
+};
+
 export type LibraryEntry = {
   id: string;
   name: string;
   createdAt: string;
+  lastPosition?: ReadingPosition;
 };
 
 const MAX_ENTRIES = 2;
@@ -77,6 +83,24 @@ export async function addComic(
   await writeManifest(baseDir, kept);
 
   return entry;
+}
+
+/**
+ * 보관 목록에 남아 있는 zip의 마지막 읽던 위치를 갱신한다. 이미 삭제되어 목록에
+ * 없는 id라면 아무것도 하지 않고 false를 반환한다(이어보기 기록도 함께 사라짐).
+ */
+export async function updateComicPosition(
+  id: string,
+  position: ReadingPosition,
+  baseDir: string = defaultBaseDir()
+): Promise<boolean> {
+  const entries = await readManifest(baseDir);
+  const index = entries.findIndex((entry) => entry.id === id);
+  if (index === -1) return false;
+
+  entries[index] = { ...entries[index], lastPosition: position };
+  await writeManifest(baseDir, entries);
+  return true;
 }
 
 /** 보관 목록에 남아 있는 zip의 원본 바이트를 반환한다. 삭제되었거나 없으면 null. */

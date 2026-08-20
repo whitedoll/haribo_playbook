@@ -6,7 +6,12 @@ import { zipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import { ComicZipError } from "@/lib/comic-zip";
-import { addComic, getComicBytes, listComics } from "@/lib/comic-library";
+import {
+  addComic,
+  getComicBytes,
+  listComics,
+  updateComicPosition,
+} from "@/lib/comic-library";
 
 function bytesOf(value: string): Uint8Array {
   return new TextEncoder().encode(value);
@@ -71,5 +76,46 @@ describe("comic-library", () => {
 
   test("존재하지 않는 id는 null을 반환한다", async () => {
     expect(await getComicBytes("no-such-id", baseDir)).toBeNull();
+  });
+
+  test("읽던 위치를 저장하면 목록 조회 시 함께 반환된다", async () => {
+    const entry = await addComic("comic.zip", validComicZipBytes(), baseDir);
+
+    const updated = await updateComicPosition(
+      entry.id,
+      { pageIndex: 5, viewMode: "double" },
+      baseDir
+    );
+    expect(updated).toBe(true);
+
+    const entries = await listComics(baseDir);
+    expect(entries[0].lastPosition).toEqual({ pageIndex: 5, viewMode: "double" });
+  });
+
+  test("삭제되어 없는 zip의 위치를 저장하려 하면 아무것도 하지 않고 false를 반환한다", async () => {
+    const updated = await updateComicPosition(
+      "no-such-id",
+      { pageIndex: 1, viewMode: "single" },
+      baseDir
+    );
+    expect(updated).toBe(false);
+  });
+
+  test("2개 초과로 zip이 자동 삭제되면 그 이어보기 기록도 함께 사라진다", async () => {
+    const first = await addComic("first.zip", validComicZipBytes(), baseDir);
+    await updateComicPosition(first.id, { pageIndex: 3, viewMode: "single" }, baseDir);
+
+    await addComic("second.zip", validComicZipBytes(), baseDir);
+    await addComic("third.zip", validComicZipBytes(), baseDir); // first를 밀어냄
+
+    const entries = await listComics(baseDir);
+    expect(entries.some((entry) => entry.id === first.id)).toBe(false);
+
+    const updatedAfterEviction = await updateComicPosition(
+      first.id,
+      { pageIndex: 4, viewMode: "single" },
+      baseDir
+    );
+    expect(updatedAfterEviction).toBe(false);
   });
 });

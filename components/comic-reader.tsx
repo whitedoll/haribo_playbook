@@ -33,6 +33,7 @@ export function ComicReader() {
   const [direction, setDirection] = useState<ReadingDirection>("rtl");
   const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
+  const [currentComicId, setCurrentComicId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputId = useId();
   const directionSelectId = useId();
@@ -65,6 +66,17 @@ export function ComicReader() {
     };
   }, []);
 
+  // 읽는 위치(페이지/보기 모드)가 바뀔 때마다 서버에 저장해 다음에 다시 열 때
+  // 이어볼 수 있게 한다. 실패해도 읽기 흐름은 계속 진행한다.
+  useEffect(() => {
+    if (status.kind !== "reading" || !currentComicId) return;
+    void fetch(`/api/comics/${currentComicId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pageIndex, viewMode }),
+    }).catch(() => {});
+  }, [status.kind, currentComicId, pageIndex, viewMode]);
+
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -80,8 +92,11 @@ export function ComicReader() {
         method: "POST",
         body: formData,
       });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) {
+      const data = (await response.json()) as {
+        entry?: LibraryEntry;
+        error?: string;
+      };
+      if (!response.ok || !data.entry) {
         setStatus({
           kind: "error",
           message: data.error ?? "zip 파일을 저장하는 중 문제가 발생했습니다.",
@@ -91,6 +106,8 @@ export function ComicReader() {
 
       const pages = parseComicZip(bytes);
       setPageIndex(0);
+      setViewMode("single");
+      setCurrentComicId(data.entry.id);
       setStatus({ kind: "reading", pages });
       void refreshLibrary();
     } catch (error) {
@@ -112,7 +129,9 @@ export function ComicReader() {
       }
       const buffer = await response.arrayBuffer();
       const pages = parseComicZip(new Uint8Array(buffer));
-      setPageIndex(0);
+      setPageIndex(entry.lastPosition?.pageIndex ?? 0);
+      setViewMode(entry.lastPosition?.viewMode ?? "single");
+      setCurrentComicId(entry.id);
       setStatus({ kind: "reading", pages });
     } catch {
       setStatus({ kind: "error", message: "선택한 zip을 열 수 없습니다." });
@@ -149,6 +168,7 @@ export function ComicReader() {
   function reset() {
     setStatus({ kind: "idle" });
     setPageIndex(0);
+    setCurrentComicId(null);
     void refreshLibrary();
   }
 

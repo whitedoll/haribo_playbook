@@ -334,6 +334,56 @@ describe("ComicReader", () => {
     expect(await screen.findByAltText("1쪽")).toBeInTheDocument();
   });
 
+  test("페이지를 넘기면 현재 위치를 서버에 저장하는 요청을 보낸다", async () => {
+    const fetchMock = vi.fn();
+    stubFetch((url, init) => {
+      fetchMock(url, init?.method);
+      return undefined;
+    });
+    renderReader();
+    uploadFile(validComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.click(screen.getByLabelText("다음 장"));
+    await screen.findByAltText("2쪽");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/comics/stub-id", "PATCH")
+    );
+  });
+
+  test("이어보기 기록이 있는 zip을 목록에서 열면 마지막 위치와 보기 모드로 이어진다", async () => {
+    const zipBytes = zipSync({
+      "page1.png": bytesOf("p1"),
+      "page2.png": bytesOf("p2"),
+      "page3.png": bytesOf("p3"),
+    });
+    stubFetch((url) => {
+      if (url === "/api/comics") {
+        return jsonResponse({
+          entries: [
+            {
+              id: "resumed",
+              name: "resumed.zip",
+              createdAt: "2026-01-01T00:00:00.000Z",
+              lastPosition: { pageIndex: 1, viewMode: "double" },
+            },
+          ],
+        });
+      }
+      if (url === "/api/comics/resumed") {
+        return zipBytesResponse(zipBytes);
+      }
+      return undefined;
+    });
+    renderReader();
+
+    fireEvent.click(await screen.findByRole("button", { name: "resumed.zip" }));
+
+    expect(await screen.findByText("2-3 / 3")).toBeInTheDocument();
+    expect(screen.getAllByRole("img")).toHaveLength(2);
+  });
+
   test("삭제되어 더 이상 없는 zip을 목록에서 열면 에러가 표시된다", async () => {
     stubFetch((url) => {
       if (url === "/api/comics") {
