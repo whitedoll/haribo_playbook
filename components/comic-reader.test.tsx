@@ -158,7 +158,7 @@ describe("ComicReader", () => {
     expect(await screen.findByAltText("2쪽")).toBeInTheDocument();
   });
 
-  test("페이지를 넘기면 넘김 애니메이션 오버레이(여러 조각)가 방향에 맞게 나타났다가 사라진다", async () => {
+  test("페이지를 넘기면 넘김 애니메이션 오버레이(한 장이 통째로 뒤집히는)가 방향에 맞게 나타났다가 사라진다", async () => {
     // jsdom은 AnimationEvent/실제 CSS 애니메이션을 지원하지 않으므로, 오버레이를
     // 정리하는 타이머 폴백을 가짜 타이머로 진행시켜 검증한다. 클릭보다 먼저 켜야
     // 그 클릭이 만든 타이머 자체가 가짜 타이머로 등록된다.
@@ -167,11 +167,11 @@ describe("ComicReader", () => {
     uploadFile(validComicZipFile());
     await screen.findByAltText("1쪽");
 
-    fireEvent.click(screen.getByLabelText("다음 장")); // 기본 오→왼: 다음 장은 왼쪽으로 넘어감
+    fireEvent.click(screen.getByLabelText("다음 장")); // 기본 오→왼: 다음 장은 왼쪽 페이지, 경첩은 오른쪽
 
     const overlay = await screen.findByTestId("page-turn-overlay");
-    expect(overlay).toHaveAttribute("data-direction", "left");
-    expect(screen.getAllByTestId("page-turn-strip")).toHaveLength(8);
+    expect(overlay).toHaveAttribute("data-hinge", "right");
+    expect(screen.getAllByTestId("page-turn-leaf")).toHaveLength(1);
     expect(await screen.findByAltText("2쪽")).toBeInTheDocument(); // 애니메이션과 무관하게 즉시 반영
 
     act(() => {
@@ -362,10 +362,10 @@ describe("ComicReader", () => {
 
     const overlay = await screen.findByTestId("page-turn-overlay");
     expect(overlay).toHaveAttribute("data-slot", "left");
-    // 오버레이 안의 조각 이미지는 alt=""(장식용)라서 role 쿼리로는 찾을 수 없어
+    // 오버레이 안의 이미지는 alt=""(장식용)라서 role 쿼리로는 찾을 수 없어
     // DOM에서 직접 조회한다.
-    const [firstStripImage] = overlay.querySelectorAll("img");
-    expect(firstStripImage).toHaveAttribute("src", outgoingSrc);
+    const [leafImage] = overlay.querySelectorAll("img");
+    expect(leafImage).toHaveAttribute("src", outgoingSrc);
 
     // 애니메이션 재생 여부와 무관하게 실제 페이지는 즉시 반영된다.
     expect(await screen.findByText("4-5 / 5")).toBeInTheDocument();

@@ -129,50 +129,41 @@
   }
 }
 
-/* 페이지 넘김 시 종이가 굽으며 넘어가는 듯한 느낌을 내는 애니메이션.
-   --turn-sign(-1 또는 1)으로 왼쪽/오른쪽 넘김 방향을 정한다. */
-@keyframes page-turn {
+/* 페이지 넘김 시 한 장이 통째로 책처럼 뒤집히는 애니메이션.
+   public/comic-page-flip.html 시안의 leaf-flip 기법을 그대로 가져왔다 —
+   앞면(현재 페이지)이 경첩을 축으로 180도 회전하며, backface-visibility로
+   절반쯤 돌았을 때 사라져 이미 바뀌어 있는 실제 페이지가 드러나 보이게
+   한다. --flip-deg(-180 또는 180)으로 경첩 방향을 정한다. */
+@keyframes leaf-flip {
   0% {
-    transform: perspective(1600px) rotateY(0deg) scaleX(1);
-    opacity: 1;
-  }
-  60% {
-    transform: perspective(1600px) rotateY(calc(var(--turn-sign) * 70deg))
-      scaleX(0.94);
-    opacity: 1;
+    transform: perspective(2000px) rotateY(0deg);
   }
   100% {
-    transform: perspective(1600px) rotateY(calc(var(--turn-sign) * 100deg))
-      scaleX(0.85);
-    opacity: 0;
+    transform: perspective(2000px) rotateY(var(--flip-deg));
   }
 }
 
-/* 각 조각이 굽어지는 동안 그 위를 지나가는 그림자/하이라이트 밴드.
-   조각이 화면과 수직에 가까워지는 순간(가장 많이 굽은 순간) 가장 진하게
-   보이도록 해서, 평평한 판이 아니라 종이가 접히는 것처럼 보이게 한다. */
-@keyframes page-turn-shade {
-  0% {
-    opacity: 0;
-  }
-  55% {
-    opacity: 0.9;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-.page-turn-strip {
-  animation: page-turn 450ms ease-in forwards;
-  animation-fill-mode: both;
+.leaf-flip {
+  animation: leaf-flip 550ms cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards;
   backface-visibility: hidden;
 }
 
-.page-turn-strip-shade {
-  animation: page-turn-shade 450ms ease-in forwards;
-  animation-fill-mode: both;
-  backface-visibility: hidden;
+/* 종이가 가장 많이 접혀 화면과 수직에 가까워지는 순간(중간 지점) 경첩 쪽이
+   가장 어두워지도록 해서, 평평한 판이 아니라 종이가 접히는 것처럼 보이게 한다. */
+@keyframes leaf-flip-shade {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.leaf-flip-shade {
+  animation: leaf-flip-shade 550ms cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards;
 }
 
 /* 시작 화면의 아늑한 원목 책장. public/cozy-bookshelf.html 무드보드를 그대로

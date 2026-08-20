@@ -22,24 +22,24 @@ import {
 } from "@/lib/comic-spread";
 import { ComicZipError, parseComicZip, type ComicPage } from "@/lib/comic-zip";
 import {
-  getStripClipPath,
-  getStripDelay,
+  getFlipDegrees,
+  getFlipHinge,
   getTurnDirection,
-  PAGE_TURN_STRIP_COUNT,
-  PAGE_TURN_TOTAL_MS,
-  type TurnDirection,
+  PAGE_FLIP_DURATION_MS,
+  type FlipHinge,
+  type SpreadSide,
 } from "@/lib/page-turn-animation";
 
 type ViewMode = "single" | "double";
 
-/** 오버레이가 차지할 영역. 두 장 보기에서 넘어가는 쪽 페이지만 굽을 때는
+/** 오버레이가 차지할 영역. 두 장 보기에서 넘어가는 쪽 페이지만 뒤집을 때는
  * "left"/"right" 절반만, 표지처럼 한 장만 보이는 경계에서는 "full"을 쓴다. */
-type TurnOverlaySlot = "full" | TurnDirection;
+type TurnOverlaySlot = "full" | SpreadSide;
 
 type TurnOverlay = {
   id: number;
   imageUrl: string;
-  turnDirection: TurnDirection;
+  hinge: FlipHinge;
   slot: TurnOverlaySlot;
 };
 
@@ -159,14 +159,14 @@ export function ComicReader() {
 
   // onAnimationEnd가 정상적으로 오버레이를 지우지만, 애니메이션이 재생되지
   // 않는 환경(예: prefers-reduced-motion, 테스트 환경)에서도 오버레이가 영영
-  // 남지 않도록 CSS 애니메이션 길이(450ms)보다 약간 긴 시간 뒤에 대비용으로
-  // 한 번 더 지운다.
+  // 남지 않도록 CSS 애니메이션 길이보다 약간 긴 시간 뒤에 대비용으로 한 번 더
+  // 지운다.
   useEffect(() => {
     if (!overlay) return;
     const overlayId = overlay.id;
     const timeout = setTimeout(() => {
       setOverlay((current) => (current?.id === overlayId ? null : current));
-    }, PAGE_TURN_TOTAL_MS + 350);
+    }, PAGE_FLIP_DURATION_MS + 350);
     return () => clearTimeout(timeout);
   }, [overlay]);
 
@@ -235,7 +235,8 @@ export function ComicReader() {
     if (status.kind !== "reading") return;
     const pageCount = status.pages.length;
     const isNext = isNextSide(side, direction);
-    const turnDirection = getTurnDirection(isNext, direction);
+    const spreadSide = getTurnDirection(isNext, direction);
+    const hinge = getFlipHinge(spreadSide);
 
     if (viewMode === "single") {
       const nextIndex = Math.min(Math.max(pageIndex + (isNext ? 1 : -1), 0), pageCount - 1);
@@ -246,7 +247,7 @@ export function ComicReader() {
         setOverlay({
           id: overlayIdRef.current,
           imageUrl: status.pages[pageIndex].dataUrl,
-          turnDirection,
+          hinge,
           slot: "full",
         });
       }
@@ -268,22 +269,22 @@ export function ComicReader() {
       );
       overlayIdRef.current += 1;
       if (currentDisplay.length === 1) {
-        // 표지처럼 한 장만 보이던 경계라서, 한 장 보기와 같이 전체가 굽는다.
+        // 표지처럼 한 장만 보이던 경계라서, 한 장 보기와 같이 화면 전체가 뒤집힌다.
         setOverlay({
           id: overlayIdRef.current,
           imageUrl: status.pages[currentDisplay[0]].dataUrl,
-          turnDirection,
+          hinge,
           slot: "full",
         });
       } else {
-        // 넘어가는 쪽(turnDirection과 같은 쪽) 페이지만 낱장처럼 독립적으로
-        // 굽고, 반대쪽 페이지는 애니메이션 없이 새 내용으로 바로 바뀐다.
-        const outgoingIndex = turnDirection === "left" ? currentDisplay[0] : currentDisplay[1];
+        // 넘어가는 쪽(spreadSide와 같은 쪽) 페이지만 낱장처럼 독립적으로
+        // 뒤집히고, 반대쪽 페이지는 애니메이션 없이 새 내용으로 바로 바뀐다.
+        const outgoingIndex = spreadSide === "left" ? currentDisplay[0] : currentDisplay[1];
         setOverlay({
           id: overlayIdRef.current,
           imageUrl: status.pages[outgoingIndex].dataUrl,
-          turnDirection,
-          slot: turnDirection,
+          hinge,
+          slot: spreadSide,
         });
       }
     }
@@ -382,7 +383,7 @@ export function ComicReader() {
             <div
               key={overlay.id}
               data-testid="page-turn-overlay"
-              data-direction={overlay.turnDirection}
+              data-hinge={overlay.hinge}
               data-slot={overlay.slot}
               className="pointer-events-none absolute inset-y-0 z-20"
               style={{
@@ -390,58 +391,38 @@ export function ComicReader() {
                 width: overlay.slot === "full" ? "100%" : "50%",
               }}
             >
-              {Array.from({ length: PAGE_TURN_STRIP_COUNT }, (_, index) => {
-                // 경첩에서 가장 먼 조각(자유단)이 먼저 움직이고 경첩 쪽 조각이
-                // 가장 늦게 끝나므로, 그 "마지막 조각"에서만 오버레이를 지운다.
-                const lastToFinishIndex =
-                  overlay.turnDirection === "left" ? PAGE_TURN_STRIP_COUNT - 1 : 0;
-
-                const delayMs = getStripDelay(
-                  index,
-                  PAGE_TURN_STRIP_COUNT,
-                  overlay.turnDirection
-                );
-
-                return (
-                  <div
-                    key={index}
-                    data-testid="page-turn-strip"
-                    className="page-turn-strip absolute inset-0"
-                    style={
-                      {
-                        clipPath: getStripClipPath(index, PAGE_TURN_STRIP_COUNT),
-                        transformOrigin:
-                          overlay.turnDirection === "left" ? "right center" : "left center",
-                        "--turn-sign": overlay.turnDirection === "left" ? -1 : 1,
-                        animationDelay: `${delayMs}ms`,
-                      } as CSSProperties
-                    }
-                    onAnimationEnd={
-                      index === lastToFinishIndex ? () => setOverlay(null) : undefined
-                    }
-                  >
-                    <img
-                      src={overlay.imageUrl}
-                      alt=""
-                      aria-hidden="true"
-                      className="h-full w-full select-none object-contain"
-                    />
-                    {/* 조각이 화면과 수직에 가까워질 때(가장 많이 굽었을 때) 그
-                        조각 위로 그림자/하이라이트가 지나가게 해, 평평한 판이
-                        아니라 종이가 접히는 것처럼 보이게 한다. */}
-                    <div
-                      className="page-turn-strip-shade absolute inset-0"
-                      style={{
-                        animationDelay: `${delayMs}ms`,
-                        background:
-                          overlay.turnDirection === "left"
-                            ? "linear-gradient(to left, rgba(0,0,0,0.15), rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.85))"
-                            : "linear-gradient(to right, rgba(0,0,0,0.15), rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.85))",
-                      }}
-                    />
-                  </div>
-                );
-              })}
+              {/* 한 장(leaf)이 통째로 경첩을 축으로 뒤집힌다. backface-visibility
+                  덕분에 절반쯤 돌아가면 이 장이 사라지면서, 클릭 즉시 이미 바뀌어
+                  있던 실제 페이지가 자연스럽게 드러난다. */}
+              <div
+                data-testid="page-turn-leaf"
+                className="leaf-flip absolute inset-0"
+                style={
+                  {
+                    transformOrigin: overlay.hinge === "left" ? "left center" : "right center",
+                    "--flip-deg": `${getFlipDegrees(overlay.hinge)}deg`,
+                  } as CSSProperties
+                }
+                onAnimationEnd={() => setOverlay(null)}
+              >
+                <img
+                  src={overlay.imageUrl}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-full w-full select-none object-contain"
+                />
+                {/* 종이가 접히며 화면과 수직에 가까워지는 순간 경첩 쪽이 어두워지게
+                    해, 평평한 판이 아니라 종이가 접히는 것처럼 보이게 한다. */}
+                <div
+                  className="leaf-flip-shade absolute inset-0"
+                  style={{
+                    background:
+                      overlay.hinge === "left"
+                        ? "linear-gradient(90deg, rgba(0,0,0,0.35), rgba(0,0,0,0))"
+                        : "linear-gradient(270deg, rgba(0,0,0,0.35), rgba(0,0,0,0))",
+                  }}
+                />
+              </div>
             </div>
           )}
           <button
