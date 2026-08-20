@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type CSSProperties,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import type { LibraryEntry } from "@/lib/comic-library";
@@ -14,8 +21,15 @@ import {
   type ReadingDirection,
 } from "@/lib/comic-spread";
 import { ComicZipError, parseComicZip, type ComicPage } from "@/lib/comic-zip";
+import { getTurnDirection, type TurnDirection } from "@/lib/page-turn-animation";
 
 type ViewMode = "single" | "double";
+
+type TurnOverlay = {
+  id: number;
+  imageUrl: string;
+  turnDirection: TurnDirection;
+};
 
 type ReaderStatus =
   | { kind: "idle" }
@@ -34,10 +48,14 @@ export function ComicReader() {
   const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [currentComicId, setCurrentComicId] = useState<string | null>(null);
+  const [animationsEnabled, setAnimationsEnabled] = useState(true);
+  const [overlay, setOverlay] = useState<TurnOverlay | null>(null);
+  const overlayIdRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputId = useId();
   const directionSelectId = useId();
   const viewModeSelectId = useId();
+  const animationToggleId = useId();
 
   async function fetchLibraryEntries(): Promise<LibraryEntry[] | null> {
     try {
@@ -76,6 +94,19 @@ export function ComicReader() {
       body: JSON.stringify({ pageIndex, viewMode }),
     }).catch(() => {});
   }, [status.kind, currentComicId, pageIndex, viewMode]);
+
+  // onAnimationEnd가 정상적으로 오버레이를 지우지만, 애니메이션이 재생되지
+  // 않는 환경(예: prefers-reduced-motion, 테스트 환경)에서도 오버레이가 영영
+  // 남지 않도록 CSS 애니메이션 길이(450ms)보다 약간 긴 시간 뒤에 대비용으로
+  // 한 번 더 지운다.
+  useEffect(() => {
+    if (!overlay) return;
+    const overlayId = overlay.id;
+    const timeout = setTimeout(() => {
+      setOverlay((current) => (current?.id === overlayId ? null : current));
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [overlay]);
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -143,10 +174,24 @@ export function ComicReader() {
     const pageCount = status.pages.length;
     const isNext = isNextSide(side, direction);
 
-    setPageIndex((current) => {
-      if (viewMode === "single") {
-        return Math.min(Math.max(current + (isNext ? 1 : -1), 0), pageCount - 1);
+    if (viewMode === "single") {
+      const nextIndex = Math.min(Math.max(pageIndex + (isNext ? 1 : -1), 0), pageCount - 1);
+      if (nextIndex === pageIndex) return; // 맨 앞/뒤 페이지에서는 넘길 것이 없다.
+
+      if (animationsEnabled) {
+        overlayIdRef.current += 1;
+        setOverlay({
+          id: overlayIdRef.current,
+          imageUrl: status.pages[pageIndex].dataUrl,
+          turnDirection: getTurnDirection(isNext, direction),
+        });
       }
+      // 애니메이션 재생 여부와 무관하게 실제 페이지는 클릭 즉시 반영한다.
+      setPageIndex(nextIndex);
+      return;
+    }
+
+    setPageIndex((current) => {
       const starts = getSpreadStarts(pageCount);
       return isNext
         ? nextSpreadStart(starts, current)
@@ -215,6 +260,15 @@ export function ComicReader() {
               <option value="rtl">오른쪽에서 왼쪽으로</option>
               <option value="ltr">왼쪽에서 오른쪽으로</option>
             </select>
+            <label htmlFor={animationToggleId} className="flex items-center gap-1 text-sm">
+              <input
+                id={animationToggleId}
+                type="checkbox"
+                checked={animationsEnabled}
+                onChange={(event) => setAnimationsEnabled(event.target.checked)}
+              />
+              넘김 애니메이션
+            </label>
             <Button variant="outline" size="sm" onClick={reset}>
               다른 zip 업로드
             </Button>
@@ -230,6 +284,38 @@ export function ComicReader() {
               style={{ maxWidth: displayIndices.length === 2 ? "50%" : undefined }}
             />
           ))}
+          {viewMode === "single" && overlay && (
+            <div
+              key={overlay.id}
+              data-testid="page-turn-overlay"
+              data-direction={overlay.turnDirection}
+              className="page-turn-overlay pointer-events-none absolute inset-0 z-20"
+              style={
+                {
+                  transformOrigin:
+                    overlay.turnDirection === "left" ? "right center" : "left center",
+                  "--turn-sign": overlay.turnDirection === "left" ? -1 : 1,
+                } as CSSProperties
+              }
+              onAnimationEnd={() => setOverlay(null)}
+            >
+              <img
+                src={overlay.imageUrl}
+                alt=""
+                aria-hidden="true"
+                className="h-full w-full select-none object-contain"
+              />
+              <div
+                className="page-turn-shadow absolute inset-0"
+                style={{
+                  background:
+                    overlay.turnDirection === "left"
+                      ? "linear-gradient(to left, transparent, rgba(0,0,0,0.6))"
+                      : "linear-gradient(to right, transparent, rgba(0,0,0,0.6))",
+                }}
+              />
+            </div>
+          )}
           <button
             type="button"
             aria-label={leftIsNext ? "다음 장" : "이전 장"}

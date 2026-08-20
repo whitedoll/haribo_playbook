@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { zipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -83,6 +83,7 @@ describe("ComicReader", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   test("초기 화면에는 업로드 안내와 zip 파일 선택 버튼 하나만 보인다", () => {
@@ -143,6 +144,51 @@ describe("ComicReader", () => {
     const nextButton = screen.getByLabelText("다음 장");
     fireEvent.click(nextButton);
     expect(await screen.findByAltText("2쪽")).toBeInTheDocument();
+  });
+
+  test("페이지를 넘기면 넘김 애니메이션 오버레이가 방향에 맞게 나타났다가 사라진다", async () => {
+    // jsdom은 AnimationEvent/실제 CSS 애니메이션을 지원하지 않으므로, 오버레이를
+    // 정리하는 타이머 폴백(500ms)을 가짜 타이머로 진행시켜 검증한다. 클릭보다
+    // 먼저 켜야 그 클릭이 만든 타이머 자체가 가짜 타이머로 등록된다.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderReader();
+    uploadFile(validComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.click(screen.getByLabelText("다음 장")); // 기본 오→왼: 다음 장은 왼쪽으로 넘어감
+
+    const overlay = await screen.findByTestId("page-turn-overlay");
+    expect(overlay).toHaveAttribute("data-direction", "left");
+    expect(await screen.findByAltText("2쪽")).toBeInTheDocument(); // 애니메이션과 무관하게 즉시 반영
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(screen.queryByTestId("page-turn-overlay")).not.toBeInTheDocument();
+  });
+
+  test("애니메이션 재생 중에 다시 클릭해도 즉시 다음 페이지로 넘어간다", async () => {
+    renderReader();
+    uploadFile(validComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.click(screen.getByLabelText("다음 장"));
+    await screen.findByTestId("page-turn-overlay");
+    fireEvent.click(screen.getByLabelText("다음 장")); // 애니메이션이 끝나기 전에 다시 클릭
+
+    expect(await screen.findByAltText("3쪽")).toBeInTheDocument();
+  });
+
+  test("넘김 애니메이션을 끄면 오버레이 없이 바로 전환된다", async () => {
+    renderReader();
+    uploadFile(validComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.click(screen.getByLabelText("넘김 애니메이션"));
+    fireEvent.click(screen.getByLabelText("다음 장"));
+
+    expect(await screen.findByAltText("2쪽")).toBeInTheDocument();
+    expect(screen.queryByTestId("page-turn-overlay")).not.toBeInTheDocument();
   });
 
   test("손상된 zip을 올리면 에러가 표시되고 읽기 화면에 진입하지 않는다", async () => {

@@ -128,3 +128,44 @@
     @apply font-sans;
   }
 }
+
+/* 페이지 넘김 시 종이가 굽으며 넘어가는 듯한 느낌을 내는 애니메이션.
+   --turn-sign(-1 또는 1)으로 왼쪽/오른쪽 넘김 방향을 정한다. */
+@keyframes page-turn {
+  0% {
+    transform: perspective(1600px) rotateY(0deg) scaleX(1);
+    opacity: 1;
+  }
+  60% {
+    transform: perspective(1600px) rotateY(calc(var(--turn-sign) * 70deg))
+      scaleX(0.94);
+    opacity: 1;
+  }
+  100% {
+    transform: perspective(1600px) rotateY(calc(var(--turn-sign) * 100deg))
+      scaleX(0.85);
+    opacity: 0;
+  }
+}
+
+@keyframes page-turn-shadow {
+  0% {
+    opacity: 0;
+  }
+  45% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.page-turn-overlay {
+  animation: page-turn 450ms ease-in forwards;
+  backface-visibility: hidden;
+}
+
+.page-turn-shadow {
+  animation: page-turn-shadow 450ms ease-in forwards;
+  backface-visibility: hidden;
+}
