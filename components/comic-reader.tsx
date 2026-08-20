@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useId, useState, type ChangeEvent } from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { LibraryEntry } from "@/lib/comic-library";
 import {
+  findSpreadStartForPage,
   getSpreadPageIndices,
   getSpreadStarts,
   nextSpreadStart,
@@ -32,6 +33,7 @@ export function ComicReader() {
   const [direction, setDirection] = useState<ReadingDirection>("rtl");
   const [viewMode, setViewMode] = useState<ViewMode>("single");
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputId = useId();
   const directionSelectId = useId();
   const viewModeSelectId = useId();
@@ -135,7 +137,13 @@ export function ComicReader() {
 
   function changeViewMode(mode: ViewMode) {
     setViewMode(mode);
-    setPageIndex(0);
+    // 한 장 → 두 장 전환 시에는 보던 페이지가 포함된 스프레드로 이어서 보여준다.
+    // 두 장 → 한 장 전환 시에는 현재 스프레드의 시작 페이지가 이미 유효한 한 장
+    // 페이지 인덱스이므로 그대로 이어서 보여준다.
+    if (status.kind === "reading" && mode === "double") {
+      const pageCount = status.pages.length;
+      setPageIndex((current) => findSpreadStartForPage(current, pageCount));
+    }
   }
 
   function reset() {
@@ -226,15 +234,17 @@ export function ComicReader() {
         만화책 이미지가 담긴 zip 파일을 올리면 압축을 풀지 않고 바로 읽을 수 있습니다.
       </p>
       <div className="flex flex-col items-center gap-2">
-        <label htmlFor={fileInputId} className="text-sm font-medium">
+        <Button type="button" onClick={() => fileInputRef.current?.click()}>
           zip 파일 선택
-        </label>
+        </Button>
         <input
+          ref={fileInputRef}
           id={fileInputId}
           type="file"
+          aria-label="zip 파일 선택"
           accept=".zip,application/zip,application/x-zip-compressed"
           onChange={handleFileChange}
-          className="text-sm"
+          className="hidden"
         />
       </div>
       {status.kind === "error" && (

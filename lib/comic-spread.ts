@@ -21,6 +21,17 @@ export function prevSpreadStart(starts: number[], current: number): number {
   return index > 0 ? starts[index - 1] : current;
 }
 
+/** 주어진 페이지 인덱스를 포함하는 스프레드의 시작 인덱스를 반환한다(모드 전환 시 이어보기용). */
+export function findSpreadStartForPage(pageIndex: number, pageCount: number): number {
+  const starts = getSpreadStarts(pageCount);
+  let result = starts[0] ?? 0;
+  for (const start of starts) {
+    if (start > pageIndex) break;
+    result = start;
+  }
+  return result;
+}
+
 /** 스프레드 시작 인덱스로부터 실제로 보여줄 페이지 인덱스(오름차순 1~2개)를 계산한다. */
 export function getSpreadPageIndices(start: number, pageCount: number): number[] {
   if (start === 0) return [0]; // 1페이지(표지)는 항상 단독 표시.

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  findSpreadStartForPage,
   getSpreadPageIndices,
   getSpreadStarts,
   nextSpreadStart,
@@ -42,6 +43,17 @@ describe("getSpreadPageIndices", () => {
 
   test("마지막 홀수 페이지는 짝 없이 혼자 표시된다", () => {
     expect(getSpreadPageIndices(3, 4)).toEqual([3]);
+  });
+});
+
+describe("findSpreadStartForPage", () => {
+  test("페이지 인덱스가 속한 스프레드의 시작 인덱스를 반환한다 (보기 모드 전환 시 이어보기용)", () => {
+    // pageCount=5 → starts [0, 1, 3], 스프레드: [0] | [1,2] | [3,4]
+    expect(findSpreadStartForPage(0, 5)).toBe(0);
+    expect(findSpreadStartForPage(1, 5)).toBe(1);
+    expect(findSpreadStartForPage(2, 5)).toBe(1);
+    expect(findSpreadStartForPage(3, 5)).toBe(3);
+    expect(findSpreadStartForPage(4, 5)).toBe(3);
   });
 });
 

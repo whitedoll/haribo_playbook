@@ -85,13 +85,27 @@ describe("ComicReader", () => {
     vi.unstubAllGlobals();
   });
 
-  test("초기 화면에는 업로드 안내와 파일 선택 입력이 보인다", () => {
+  test("초기 화면에는 업로드 안내와 zip 파일 선택 버튼 하나만 보인다", () => {
     renderReader();
 
     expect(
       screen.getByRole("heading", { name: "만화책 zip 리더" })
     ).toBeInTheDocument();
     expect(screen.getByLabelText("zip 파일 선택")).toBeInTheDocument();
+    expect(screen.getAllByText("zip 파일 선택")).toHaveLength(1);
+    expect(
+      screen.getByRole("button", { name: "zip 파일 선택" })
+    ).toBeInTheDocument();
+  });
+
+  test("zip 파일 선택 버튼을 누르면 실제 파일 입력이 열린다", () => {
+    renderReader();
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
+
+    fireEvent.click(screen.getByRole("button", { name: "zip 파일 선택" }));
+
+    expect(clickSpy).toHaveBeenCalled();
+    clickSpy.mockRestore();
   });
 
   test("zip을 올리면 압축 해제 안내 없이 첫 페이지가 바로 보인다", async () => {
@@ -218,6 +232,41 @@ describe("ComicReader", () => {
 
     expect(await screen.findByText("1 / 3")).toBeInTheDocument();
     expect(screen.getAllByRole("img")).toHaveLength(1);
+  });
+
+  test("한 장 보기에서 넘긴 뒤 두 장 보기로 전환하면 보던 페이지가 포함된 스프레드로 이어진다", async () => {
+    renderReader();
+    uploadFile(validComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.click(screen.getByLabelText("다음 장")); // 2쪽으로 이동
+    await screen.findByAltText("2쪽");
+
+    fireEvent.change(screen.getByLabelText("보기 모드"), {
+      target: { value: "double" },
+    });
+
+    expect(await screen.findByText("2-3 / 3")).toBeInTheDocument();
+    expect(screen.getAllByRole("img")).toHaveLength(2);
+  });
+
+  test("두 장 보기에서 다음 스프레드로 넘긴 뒤 한 장 보기로 전환하면 그 스프레드의 첫 페이지로 이어진다", async () => {
+    renderReader();
+    uploadFile(validComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.change(screen.getByLabelText("보기 모드"), {
+      target: { value: "double" },
+    });
+    fireEvent.click(screen.getByLabelText("다음 장"));
+    await screen.findByText("2-3 / 3");
+
+    fireEvent.change(screen.getByLabelText("보기 모드"), {
+      target: { value: "single" },
+    });
+
+    expect(await screen.findByText("2 / 3")).toBeInTheDocument();
+    expect(screen.getByAltText("2쪽")).toBeInTheDocument();
   });
 
   test("다른 zip 업로드 버튼을 누르면 업로드 화면으로 돌아간다", async () => {
