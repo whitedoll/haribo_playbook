@@ -3,9 +3,17 @@
 import { useId, useState, type ChangeEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  getSpreadPageIndices,
+  getSpreadStarts,
+  nextSpreadStart,
+  orderForDisplay,
+  prevSpreadStart,
+  type ReadingDirection,
+} from "@/lib/comic-spread";
 import { ComicZipError, parseComicZip, type ComicPage } from "@/lib/comic-zip";
 
-type Direction = "rtl" | "ltr";
+type ViewMode = "single" | "double";
 
 type ReaderStatus =
   | { kind: "idle" }
@@ -13,16 +21,18 @@ type ReaderStatus =
   | { kind: "reading"; pages: ComicPage[] };
 
 /** 클릭한 쪽(side)이 방향 설정에 따라 '다음 장'인지 판단한다. */
-function isNextSide(side: "left" | "right", direction: Direction): boolean {
+function isNextSide(side: "left" | "right", direction: ReadingDirection): boolean {
   return direction === "rtl" ? side === "left" : side === "right";
 }
 
 export function ComicReader() {
   const [status, setStatus] = useState<ReaderStatus>({ kind: "idle" });
   const [pageIndex, setPageIndex] = useState(0);
-  const [direction, setDirection] = useState<Direction>("rtl");
+  const [direction, setDirection] = useState<ReadingDirection>("rtl");
+  const [viewMode, setViewMode] = useState<ViewMode>("single");
   const fileInputId = useId();
   const directionSelectId = useId();
+  const viewModeSelectId = useId();
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -46,8 +56,22 @@ export function ComicReader() {
   function turn(side: "left" | "right") {
     if (status.kind !== "reading") return;
     const pageCount = status.pages.length;
-    const delta = isNextSide(side, direction) ? 1 : -1;
-    setPageIndex((current) => Math.min(Math.max(current + delta, 0), pageCount - 1));
+    const isNext = isNextSide(side, direction);
+
+    setPageIndex((current) => {
+      if (viewMode === "single") {
+        return Math.min(Math.max(current + (isNext ? 1 : -1), 0), pageCount - 1);
+      }
+      const starts = getSpreadStarts(pageCount);
+      return isNext
+        ? nextSpreadStart(starts, current)
+        : prevSpreadStart(starts, current);
+    });
+  }
+
+  function changeViewMode(mode: ViewMode) {
+    setViewMode(mode);
+    setPageIndex(0);
   }
 
   function reset() {
@@ -56,16 +80,34 @@ export function ComicReader() {
   }
 
   if (status.kind === "reading") {
-    const page = status.pages[pageIndex];
+    const pageCount = status.pages.length;
     const leftIsNext = isNextSide("left", direction);
+    const displayIndices =
+      viewMode === "single"
+        ? [pageIndex]
+        : orderForDisplay(getSpreadPageIndices(pageIndex, pageCount), direction);
+    const counterLabel =
+      displayIndices.length === 2
+        ? `${Math.min(...displayIndices) + 1}-${Math.max(...displayIndices) + 1} / ${pageCount}`
+        : `${displayIndices[0] + 1} / ${pageCount}`;
 
     return (
       <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b border-border px-4 py-2">
-          <span className="text-sm text-muted-foreground">
-            {pageIndex + 1} / {status.pages.length}
-          </span>
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-4 py-2">
+          <span className="text-sm text-muted-foreground">{counterLabel}</span>
           <div className="flex items-center gap-2">
+            <label htmlFor={viewModeSelectId} className="text-sm">
+              보기 모드
+            </label>
+            <select
+              id={viewModeSelectId}
+              className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+              value={viewMode}
+              onChange={(event) => changeViewMode(event.target.value as ViewMode)}
+            >
+              <option value="single">한 장 보기</option>
+              <option value="double">두 장 보기</option>
+            </select>
             <label htmlFor={directionSelectId} className="text-sm">
               넘기는 방향
             </label>
@@ -73,7 +115,9 @@ export function ComicReader() {
               id={directionSelectId}
               className="rounded-md border border-input bg-background px-2 py-1 text-sm"
               value={direction}
-              onChange={(event) => setDirection(event.target.value as Direction)}
+              onChange={(event) =>
+                setDirection(event.target.value as ReadingDirection)
+              }
             >
               <option value="rtl">오른쪽에서 왼쪽으로</option>
               <option value="ltr">왼쪽에서 오른쪽으로</option>
@@ -83,12 +127,16 @@ export function ComicReader() {
             </Button>
           </div>
         </header>
-        <div className="relative flex flex-1 items-center justify-center bg-black">
-          <img
-            src={page.dataUrl}
-            alt={`${pageIndex + 1}쪽`}
-            className="max-h-full max-w-full select-none object-contain"
-          />
+        <div className="relative flex flex-1 items-center justify-center gap-1 bg-black">
+          {displayIndices.map((index) => (
+            <img
+              key={index}
+              src={status.pages[index].dataUrl}
+              alt={`${index + 1}쪽`}
+              className="max-h-full max-w-full select-none object-contain"
+              style={{ maxWidth: displayIndices.length === 2 ? "50%" : undefined }}
+            />
+          ))}
           <button
             type="button"
             aria-label={leftIsNext ? "다음 장" : "이전 장"}

@@ -92,6 +92,49 @@ describe("ComicReader", () => {
     );
   });
 
+  test("두 장 보기로 전환하면 1페이지가 표지로 단독 표시된다", async () => {
+    uploadFile(validComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.change(screen.getByLabelText("보기 모드"), {
+      target: { value: "double" },
+    });
+
+    expect(screen.getAllByRole("img")).toHaveLength(1);
+    expect(screen.getByAltText("1쪽")).toBeInTheDocument();
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+  });
+
+  test("두 장 보기에서 다음으로 넘기면 2-3쪽이 함께 표시되고, 기본 방향(오→왼)에서는 3쪽이 왼쪽에 온다", async () => {
+    uploadFile(validComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.change(screen.getByLabelText("보기 모드"), {
+      target: { value: "double" },
+    });
+    fireEvent.click(screen.getByLabelText("다음 장"));
+
+    expect(await screen.findByText("2-3 / 3")).toBeInTheDocument();
+    const images = screen.getAllByRole("img");
+    expect(images.map((img) => img.getAttribute("alt"))).toEqual(["3쪽", "2쪽"]);
+  });
+
+  test("두 장 보기에서 이전 장을 누르면 표지로 돌아간다", async () => {
+    uploadFile(validComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.change(screen.getByLabelText("보기 모드"), {
+      target: { value: "double" },
+    });
+    fireEvent.click(screen.getByLabelText("다음 장"));
+    await screen.findByText("2-3 / 3");
+
+    fireEvent.click(screen.getByLabelText("이전 장"));
+
+    expect(await screen.findByText("1 / 3")).toBeInTheDocument();
+    expect(screen.getAllByRole("img")).toHaveLength(1);
+  });
+
   test("다른 zip 업로드 버튼을 누르면 업로드 화면으로 돌아간다", async () => {
     uploadFile(validComicZipFile());
     await screen.findByAltText("1쪽");
