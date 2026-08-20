@@ -6,6 +6,16 @@
 > [Claude Hunt](https://www.claude-hunt.com) 강의용 Next.js 16 + React 19 템플릿.
 > 사용법과 워크플로우 문서는 [docs.claude-hunt.com](https://docs.claude-hunt.com)에서 확인하세요.
 
+## 프로젝트 소개
+
+이 템플릿 위에서 만든 예제 앱은 **만화책 zip 뷰어**입니다. zip으로 받은 만화책 이미지를 압축 해제 없이 웹에서 바로, 실제 책장을 넘기듯 편하게 읽는 개인용 도구입니다.
+
+- zip 파일을 그대로 업로드해 압축 해제 과정 없이 바로 읽기 시작합니다.
+- 한 장/두 장 보기를 언제든 전환할 수 있고, 화면 좌/우 클릭으로 페이지를 넘깁니다(넘기는 방향은 좌→우/우→좌 중 선택).
+- 페이지를 넘기면 실제 책 한 장이 경첩을 축으로 뒤집히는 애니메이션이 재생됩니다.
+- 최근 업로드한 zip은 최대 2개까지 보존해 다시 열어볼 수 있습니다.
+- `public/examples/`에 예제 만화책 zip(`war.zip`, `comic.zip`)이 들어 있어 바로 열어볼 수 있습니다.
+
 ## 기술 스택
 
 Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · shadcn/ui · Bun · Vitest · Playwright
