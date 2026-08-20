@@ -32,10 +32,15 @@ import {
 
 type ViewMode = "single" | "double";
 
+/** 오버레이가 차지할 영역. 두 장 보기에서 넘어가는 쪽 페이지만 굽을 때는
+ * "left"/"right" 절반만, 표지처럼 한 장만 보이는 경계에서는 "full"을 쓴다. */
+type TurnOverlaySlot = "full" | TurnDirection;
+
 type TurnOverlay = {
   id: number;
   imageUrl: string;
   turnDirection: TurnDirection;
+  slot: TurnOverlaySlot;
 };
 
 type ReaderStatus =
@@ -180,6 +185,7 @@ export function ComicReader() {
     if (status.kind !== "reading") return;
     const pageCount = status.pages.length;
     const isNext = isNextSide(side, direction);
+    const turnDirection = getTurnDirection(isNext, direction);
 
     if (viewMode === "single") {
       const nextIndex = Math.min(Math.max(pageIndex + (isNext ? 1 : -1), 0), pageCount - 1);
@@ -190,7 +196,8 @@ export function ComicReader() {
         setOverlay({
           id: overlayIdRef.current,
           imageUrl: status.pages[pageIndex].dataUrl,
-          turnDirection: getTurnDirection(isNext, direction),
+          turnDirection,
+          slot: "full",
         });
       }
       // 애니메이션 재생 여부와 무관하게 실제 페이지는 클릭 즉시 반영한다.
@@ -198,16 +205,45 @@ export function ComicReader() {
       return;
     }
 
-    setPageIndex((current) => {
-      const starts = getSpreadStarts(pageCount);
-      return isNext
-        ? nextSpreadStart(starts, current)
-        : prevSpreadStart(starts, current);
-    });
+    const starts = getSpreadStarts(pageCount);
+    const nextStart = isNext
+      ? nextSpreadStart(starts, pageIndex)
+      : prevSpreadStart(starts, pageIndex);
+    if (nextStart === pageIndex) return; // 맨 앞/뒤 스프레드에서는 넘길 것이 없다.
+
+    if (animationsEnabled) {
+      const currentDisplay = orderForDisplay(
+        getSpreadPageIndices(pageIndex, pageCount),
+        direction
+      );
+      overlayIdRef.current += 1;
+      if (currentDisplay.length === 1) {
+        // 표지처럼 한 장만 보이던 경계라서, 한 장 보기와 같이 전체가 굽는다.
+        setOverlay({
+          id: overlayIdRef.current,
+          imageUrl: status.pages[currentDisplay[0]].dataUrl,
+          turnDirection,
+          slot: "full",
+        });
+      } else {
+        // 넘어가는 쪽(turnDirection과 같은 쪽) 페이지만 낱장처럼 독립적으로
+        // 굽고, 반대쪽 페이지는 애니메이션 없이 새 내용으로 바로 바뀐다.
+        const outgoingIndex = turnDirection === "left" ? currentDisplay[0] : currentDisplay[1];
+        setOverlay({
+          id: overlayIdRef.current,
+          imageUrl: status.pages[outgoingIndex].dataUrl,
+          turnDirection,
+          slot: turnDirection,
+        });
+      }
+    }
+
+    setPageIndex(nextStart);
   }
 
   function changeViewMode(mode: ViewMode) {
     setViewMode(mode);
+    setOverlay(null); // 보기 모드가 바뀌면 진행 중이던 넘김 오버레이는 의미가 없어진다.
     // 한 장 → 두 장 전환 시에는 보던 페이지가 포함된 스프레드로 이어서 보여준다.
     // 두 장 → 한 장 전환 시에는 현재 스프레드의 시작 페이지가 이미 유효한 한 장
     // 페이지 인덱스이므로 그대로 이어서 보여준다.
@@ -221,6 +257,7 @@ export function ComicReader() {
     setStatus({ kind: "idle" });
     setPageIndex(0);
     setCurrentComicId(null);
+    setOverlay(null); // 다음에 열 zip에 이전 zip의 넘김 오버레이가 겹쳐 보이지 않게 한다.
     void refreshLibrary();
   }
 
@@ -291,12 +328,17 @@ export function ComicReader() {
               style={{ maxWidth: displayIndices.length === 2 ? "50%" : undefined }}
             />
           ))}
-          {viewMode === "single" && overlay && (
+          {overlay && (
             <div
               key={overlay.id}
               data-testid="page-turn-overlay"
               data-direction={overlay.turnDirection}
-              className="pointer-events-none absolute inset-0 z-20"
+              data-slot={overlay.slot}
+              className="pointer-events-none absolute inset-y-0 z-20"
+              style={{
+                left: overlay.slot === "right" ? "50%" : 0,
+                width: overlay.slot === "full" ? "100%" : "50%",
+              }}
             >
               {Array.from({ length: PAGE_TURN_STRIP_COUNT }, (_, index) => {
                 // 경첩에서 가장 먼 조각(자유단)이 먼저 움직이고 경첩 쪽 조각이

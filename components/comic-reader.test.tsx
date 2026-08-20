@@ -20,6 +20,18 @@ function validComicZipFile(name = "comic.zip"): File {
   return new File([validComicZipBytes()], name, { type: "application/zip" });
 }
 
+/** 스프레드 사이(1-2, 3-4)를 넘나드는 것까지 테스트하기 위한 5페이지 zip. */
+function fivePageComicZipFile(name = "comic5.zip"): File {
+  const zip = zipSync({
+    "page1.png": bytesOf("page-1"),
+    "page2.png": bytesOf("page-2"),
+    "page3.png": bytesOf("page-3"),
+    "page4.png": bytesOf("page-4"),
+    "page5.png": bytesOf("page-5"),
+  });
+  return new File([zip], name, { type: "application/zip" });
+}
+
 function uploadFile(file: File) {
   const input = screen.getByLabelText("zip 파일 선택") as HTMLInputElement;
   fireEvent.change(input, { target: { files: [file] } });
@@ -314,6 +326,85 @@ describe("ComicReader", () => {
 
     expect(await screen.findByText("2 / 3")).toBeInTheDocument();
     expect(screen.getByAltText("2쪽")).toBeInTheDocument();
+  });
+
+  test("표지에서 다음 스프레드로 넘기면 표지 전체가 한 장 보기처럼 오버레이로 굽는다", async () => {
+    renderReader();
+    uploadFile(fivePageComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.change(screen.getByLabelText("보기 모드"), {
+      target: { value: "double" },
+    });
+    fireEvent.click(screen.getByLabelText("다음 장"));
+
+    const overlay = await screen.findByTestId("page-turn-overlay");
+    expect(overlay).toHaveAttribute("data-slot", "full");
+    expect(await screen.findByText("2-3 / 5")).toBeInTheDocument();
+  });
+
+  test("두 장 보기에서 스프레드 사이를 넘기면 넘어가는 쪽 페이지만 오버레이로 굽고, 반대쪽은 애니메이션 없이 바로 바뀐다", async () => {
+    renderReader();
+    uploadFile(fivePageComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.change(screen.getByLabelText("보기 모드"), {
+      target: { value: "double" },
+    });
+    fireEvent.click(screen.getByLabelText("다음 장")); // 표지 -> 2-3쪽 스프레드
+    await screen.findByText("2-3 / 5");
+
+    // 기본(오→왼) 방향에서는 3쪽이 왼쪽, 2쪽이 오른쪽에 온다 (넘어가는 쪽은 왼쪽=3쪽).
+    const outgoingLeftImage = screen.getByAltText("3쪽") as HTMLImageElement;
+    const outgoingSrc = outgoingLeftImage.src;
+
+    fireEvent.click(screen.getByLabelText("다음 장")); // 2-3쪽 스프레드 -> 4-5쪽 스프레드
+
+    const overlay = await screen.findByTestId("page-turn-overlay");
+    expect(overlay).toHaveAttribute("data-slot", "left");
+    // 오버레이 안의 조각 이미지는 alt=""(장식용)라서 role 쿼리로는 찾을 수 없어
+    // DOM에서 직접 조회한다.
+    const [firstStripImage] = overlay.querySelectorAll("img");
+    expect(firstStripImage).toHaveAttribute("src", outgoingSrc);
+
+    // 애니메이션 재생 여부와 무관하게 실제 페이지는 즉시 반영된다.
+    expect(await screen.findByText("4-5 / 5")).toBeInTheDocument();
+  });
+
+  test("두 장 보기에서도 넘김 애니메이션을 끄면 오버레이 없이 바로 전환된다", async () => {
+    renderReader();
+    uploadFile(fivePageComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.change(screen.getByLabelText("보기 모드"), {
+      target: { value: "double" },
+    });
+    fireEvent.click(screen.getByLabelText("넘김 애니메이션"));
+    fireEvent.click(screen.getByLabelText("다음 장"));
+
+    expect(await screen.findByText("2-3 / 5")).toBeInTheDocument();
+    expect(screen.queryByTestId("page-turn-overlay")).not.toBeInTheDocument();
+  });
+
+  test("애니메이션 재생 중 다른 zip 업로드를 누르면, 곧이어 연 zip에는 이전 오버레이가 남아있지 않다", async () => {
+    renderReader();
+    uploadFile(validComicZipFile());
+    await screen.findByAltText("1쪽");
+
+    fireEvent.click(screen.getByLabelText("다음 장")); // 오버레이 생성(애니메이션 진행 중)
+    await screen.findByTestId("page-turn-overlay");
+
+    fireEvent.click(screen.getByRole("button", { name: "다른 zip 업로드" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { name: "만화책 zip 리더" })
+      ).toBeInTheDocument()
+    );
+
+    uploadFile(validComicZipFile("other.zip"));
+    await screen.findByAltText("1쪽");
+
+    expect(screen.queryByTestId("page-turn-overlay")).not.toBeInTheDocument();
   });
 
   test("다른 zip 업로드 버튼을 누르면 업로드 화면으로 돌아간다", async () => {
